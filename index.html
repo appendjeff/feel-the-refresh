@@ -1,0 +1,973 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Feel the Refresh</title>
+<style>
+  :root {
+    --bg: #0e0f11;
+    --fg: #d4d4d4;
+    --muted: #6b6f76;
+    --accent: #e2b714;
+    --border: #2b2d31;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, Menlo, Consolas, monospace;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 6vh 20px 40px;
+  }
+  header {
+    margin-bottom: 1rem;
+    text-align: center;
+  }
+  header h1 {
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: var(--muted);
+    margin: 0 0 6px;
+    text-transform: lowercase;
+  }
+  header p {
+    font-size: 12px;
+    color: var(--muted);
+    margin: 0;
+    opacity: 0.7;
+  }
+  main {
+    width: 100%;
+    max-width: 700px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+  }
+
+  /* profile switcher */
+  .profile-switcher {
+    display: flex;
+    gap: 8px;
+    background: #17181b;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 4px;
+  }
+  .profile-btn {
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: 13px;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+  }
+  .profile-btn:hover { color: var(--fg); }
+  .profile-btn.active {
+    background: #26282c;
+    color: var(--accent);
+  }
+
+  /* device frame */
+  .device-frame {
+    position: relative;
+    width: 100%;
+    border-radius: 14px;
+    padding: 18px;
+    background: #1a1b1e;
+    border: 1px solid var(--border);
+    transition: background 0.3s, border-color 0.3s, padding 0.3s, border-radius 0.3s, box-shadow 0.3s;
+  }
+  .device-screen {
+    position: relative;
+    width: 100%;
+    min-height: 260px;
+    border-radius: 4px;
+    overflow: hidden;
+    cursor: text;
+    background: #ded9c9;
+    transition: background 0.3s;
+  }
+  .device-screen.theme-epaper { background: #ded9c9; }
+  .device-screen.theme-rlcd   { background: #dfe3e0; }
+  .device-screen.theme-sharp  { background: #f7f7f5; }
+
+  .current-layer, .ghost-layer {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: 18px 20px;
+    font-family: inherit;
+    font-size: 16px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: #1a1a1a;
+    pointer-events: none;
+  }
+  .ghost-layer {
+    color: #444;
+    opacity: 0;
+  }
+  .current-layer {
+    z-index: 3;
+  }
+
+  .placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #8a8577;
+    font-size: 14px;
+    z-index: 4;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+  .theme-rlcd .placeholder { color: #8a908c; }
+  .theme-sharp .placeholder { color: #a3a3a0; }
+
+  .flash-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .flash-overlay.is-flashing {
+    animation-name: epaperFlash;
+    animation-timing-function: steps(1, end);
+    animation-fill-mode: forwards;
+  }
+  @keyframes epaperFlash {
+    0%   { background:#111; opacity:1; }
+    16%  { background:#eee; opacity:1; }
+    32%  { background:#111; opacity:1; }
+    48%  { background:#eee; opacity:1; }
+    64%  { background:#111; opacity:1; }
+    80%  { background:#eee; opacity:1; }
+    100% { background:#eee; opacity:0; }
+  }
+
+  .capture-input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    color: transparent;
+    caret-color: transparent;
+    background: transparent;
+    border: none;
+    outline: none;
+    resize: none;
+    z-index: 10;
+    padding: 18px 20px;
+    font: inherit;
+    font-size: 16px;
+    line-height: 1.6;
+  }
+
+  /* controls */
+  .bottom-controls {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+  }
+  .controls-row {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .controls-row label { white-space: nowrap; }
+  .controls-row input[type="number"] {
+    width: 56px;
+    background: #17181b;
+    border: 1px solid var(--border);
+    color: var(--fg);
+    font: inherit;
+    font-size: 13px;
+    border-radius: 6px;
+    padding: 5px 8px;
+    text-align: center;
+  }
+  .controls-row input[type="range"] {
+    width: 140px;
+  }
+  .controls-note {
+    font-size: 11px;
+    color: var(--muted);
+    opacity: 0.7;
+  }
+
+  .stats-row {
+    display: flex;
+    gap: 20px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .stats-row .stat-value { color: var(--fg); }
+  .stats-row .stat-highlight { color: var(--accent); }
+
+  /* ===== per-device personality ===== */
+  /* flourish elements are hidden unless their device is active */
+  .kindle-chin, .retro-badge, .notif-stack, .notif-footer, .upgrade-btn { display: none; }
+  .scanlines {
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    pointer-events: none;
+    opacity: 0;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.11) 0, rgba(0, 0, 0, 0.11) 1px,
+      transparent 1px, transparent 3px
+    );
+    mix-blend-mode: multiply;
+  }
+
+  /* --- e-ink : a Kindle --- */
+  .device-frame[data-profile="epaper"] {
+    background: linear-gradient(#cdd0d3, #bcc0c3);
+    border-color: #a9adb1;
+    border-radius: 20px;
+    padding: 16px 16px 6px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 12px 34px rgba(0, 0, 0, 0.45);
+  }
+  .device-frame[data-profile="epaper"] .device-screen {
+    border-radius: 3px;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.10);
+  }
+  .device-frame[data-profile="epaper"] .kindle-chin {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 40px;
+    color: #5b5f64;
+    font-size: 13px;
+    letter-spacing: 0.42em;
+    text-transform: lowercase;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+  }
+  .kindle-chin .home-dot {
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    margin-left: 14px;
+    padding: 0;
+    border-radius: 50%;
+    letter-spacing: 0;
+    border: 1.5px solid #8a8e92;
+    background: linear-gradient(#d3d6d9, #c2c5c8);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+  }
+  .kindle-chin .home-dot:hover {
+    border-color: #6f7377;
+  }
+  .kindle-chin .home-dot:active {
+    background: linear-gradient(#b7bbbe, #c2c5c8);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+  }
+
+  /* --- e-ink : screensaver --- */
+  .screensaver {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 40px 30px;
+    z-index: 4;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+    color: #1a1a1a;
+    text-align: center;
+  }
+  .ss-rule {
+    width: 46px;
+    height: 1px;
+    background: #8a8577;
+  }
+  .ss-title {
+    font-size: 26px;
+    letter-spacing: 0.01em;
+    line-height: 1.3;
+  }
+  .ss-byline {
+    font-size: 13px;
+    font-style: italic;
+    color: #6b6558;
+    margin-top: -8px;
+  }
+  .ss-author {
+    font-size: 12px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: #4a463c;
+  }
+
+  /* --- RLCD : a retro beige gadget --- */
+  .device-frame[data-profile="rlcd"] {
+    background: linear-gradient(#e9e1cf, #d6ccb3);
+    border-color: #b3a888;
+    border-radius: 12px;
+    padding: 22px 20px 18px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 12px 30px rgba(0, 0, 0, 0.4);
+  }
+  .device-frame[data-profile="rlcd"]::before,
+  .device-frame[data-profile="rlcd"]::after {
+    content: "";
+    position: absolute;
+    top: 8px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 32%, #ded2ad, #877d5c);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+  }
+  .device-frame[data-profile="rlcd"]::before { left: 8px; }
+  .device-frame[data-profile="rlcd"]::after  { right: 8px; }
+  .device-frame[data-profile="rlcd"] .device-screen {
+    border-radius: 2px;
+    box-shadow: inset 0 2px 7px rgba(0, 0, 0, 0.35), inset 0 0 0 2px #a89d7d;
+    background-image: linear-gradient(rgba(90, 120, 80, 0.10), rgba(90, 120, 80, 0.10));
+  }
+  .device-frame[data-profile="rlcd"] .retro-badge {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-top: 15px;
+    padding: 0 2px;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #6b6350;
+  }
+  .retro-badge .led {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #57e357;
+    box-shadow: 0 0 7px #57e357, 0 0 2px #2fa;
+    animation: ledPulse 3s ease-in-out infinite;
+  }
+  @keyframes ledPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+  .retro-badge .model {
+    margin-left: auto;
+    font-weight: 600;
+    color: #55503f;
+  }
+  .retro-badge .hw-clear-btn {
+    appearance: none;
+    font: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #55503f;
+    padding: 4px 9px;
+    border-radius: 4px;
+    cursor: pointer;
+    background: linear-gradient(#f2ecdc, #d3c8a8);
+    border: 1px solid #a89d7d;
+    border-top-color: #f6f1e4;
+    box-shadow: 0 2px 0 #948764, 0 3px 3px rgba(0, 0, 0, 0.25);
+  }
+  .retro-badge .hw-clear-btn:hover {
+    background: linear-gradient(#f6f1e4, #d9cfb1);
+  }
+  .retro-badge .hw-clear-btn:active {
+    box-shadow: 0 0 0 #948764, inset 0 1px 2px rgba(0, 0, 0, 0.3);
+    transform: translateY(2px);
+  }
+
+  /* --- LCD : a phone buried in notifications --- */
+  .device-frame[data-profile="sharp"] {
+    background: #131316;
+    border-radius: 22px;
+    padding: 14px;
+    box-shadow:
+      0 0 0 1px #232228,
+      0 0 26px 2px rgba(225, 48, 108, 0.25),
+      0 12px 34px rgba(0, 0, 0, 0.6);
+    background-image: linear-gradient(#131316, #131316),
+      linear-gradient(135deg, #4f5bd5, #962fbf 30%, #e1306c 55%, #fd1d1d 75%, #fcaf45);
+    background-origin: border-box;
+    background-clip: padding-box, border-box;
+    border: 2px solid transparent;
+  }
+  .device-frame[data-profile="sharp"] .device-screen {
+    border-radius: 10px;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
+  }
+  .theme-sharp .scanlines { opacity: 0; }
+
+  .device-frame[data-profile="sharp"] .notif-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 2px 4px 12px;
+  }
+  .notif-stack .notif-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border-radius: 12px;
+    background: #1d1e22;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
+    font-size: 11px;
+    color: #c7c8cd;
+  }
+  .notif-stack .notif-pill:nth-child(2) { transform: scale(0.97) translateY(-1px); opacity: 0.85; }
+  .notif-stack .notif-pill:nth-child(3) { transform: scale(0.94) translateY(-2px); opacity: 0.65; }
+  .notif-pill .app-icon {
+    width: 16px;
+    height: 16px;
+    flex: none;
+    border-radius: 5px;
+    background: linear-gradient(135deg, #4f5bd5, #e1306c, #fcaf45);
+  }
+  .notif-pill .app-icon.icon-alt { background: linear-gradient(135deg, #00c2ff, #0057ff); }
+  .notif-pill .app-icon.icon-ad { background: linear-gradient(135deg, #2ecc71, #16a085); }
+  .notif-pill .app-name { font-weight: 700; color: #f2f2f3; }
+  .notif-pill .bait { color: #9a9ba3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .notif-pill .rec {
+    display: inline-flex;
+    align-items: center;
+    margin-left: auto;
+    flex: none;
+  }
+  .notif-pill .rec .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #ff2d55;
+    box-shadow: 0 0 6px #ff2d55;
+    animation: badgePulse 1.6s ease-in-out infinite;
+  }
+  @keyframes badgePulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.55; transform: scale(0.8); } }
+  .notif-pill .clock {
+    margin-left: 6px;
+    color: #6f7078;
+    font-variant-numeric: tabular-nums;
+    flex: none;
+  }
+
+  .device-frame[data-profile="sharp"] .notif-footer {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 4px 2px;
+    font-size: 10px;
+    color: #7f8089;
+    overflow: hidden;
+  }
+  .notif-footer .ticker-track {
+    flex: 1;
+    overflow: hidden;
+    white-space: nowrap;
+    mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
+  }
+  .notif-footer .ticker-content {
+    display: inline-block;
+    padding-left: 100%;
+    letter-spacing: 0.05em;
+    animation: tickerScroll 14s linear infinite;
+  }
+  .notif-footer .ticker-content span { color: #e1306c; font-weight: 600; }
+  @keyframes tickerScroll { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
+  .notif-footer .engagement {
+    flex: none;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: #7f8089;
+  }
+  .notif-footer .val { color: #e1306c; font-variant-numeric: tabular-nums; font-weight: 700; }
+
+  .device-frame[data-profile="sharp"] .upgrade-btn {
+    display: block;
+    appearance: none;
+    width: 100%;
+    margin-top: 8px;
+    padding: 9px 12px;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-align: center;
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    cursor: pointer;
+    background: linear-gradient(135deg, #4f5bd5, #962fbf 30%, #e1306c 55%, #fd1d1d 75%, #fcaf45);
+    box-shadow: 0 4px 14px rgba(225, 48, 108, 0.4);
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+  .device-frame[data-profile="sharp"] .upgrade-btn:hover {
+    box-shadow: 0 5px 18px rgba(225, 48, 108, 0.55);
+  }
+  .device-frame[data-profile="sharp"] .upgrade-btn:active {
+    transform: scale(0.98);
+    box-shadow: 0 2px 8px rgba(225, 48, 108, 0.35);
+  }
+</style>
+</head>
+<body>
+
+<main>
+  <div class="profile-switcher" id="profileSwitcher">
+    <button class="profile-btn" data-profile="epaper">e-ink</button>
+    <button class="profile-btn" data-profile="rlcd">RLCD</button>
+    <button class="profile-btn" data-profile="sharp">LCD</button>
+  </div>
+
+  <div class="device-frame" id="deviceFrame" data-profile="epaper">
+    <div class="notif-stack" id="surveilBar">
+      <div class="notif-pill">
+        <span class="app-icon"></span>
+        <span class="app-name">instagram</span>
+        <span class="bait">someone you follow just went live</span>
+        <span class="rec"><span class="dot"></span></span>
+      </div>
+      <div class="notif-pill">
+        <span class="app-icon icon-alt"></span>
+        <span class="app-name">messages</span>
+        <span class="bait">"are you seeing this??"</span>
+        <span class="clock" id="surveilClock">00:00:00</span>
+      </div>
+      <div class="notif-pill">
+        <span class="app-icon icon-ad"></span>
+        <span class="app-name">sponsored</span>
+        <span class="bait">this display type is 20% off today only</span>
+      </div>
+    </div>
+
+    <div class="device-screen theme-epaper" id="screen">
+      <pre class="ghost-layer" id="ghost1"></pre>
+      <pre class="ghost-layer" id="ghost0"></pre>
+      <pre class="current-layer" id="current"></pre>
+      <div class="placeholder" id="placeholder">click here and start typing</div>
+      <div class="screensaver" id="screensaver">
+        <div class="ss-rule"></div>
+        <div class="ss-title">feel the refresh</div>
+        <div class="ss-byline">a typing novel</div>
+        <div class="ss-author">Jeff Mandell</div>
+        <div class="ss-rule"></div>
+      </div>
+      <div class="scanlines"></div>
+      <div class="flash-overlay" id="flashOverlay"></div>
+      <textarea class="capture-input" id="captureInput" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></textarea>
+    </div>
+
+    <div class="kindle-chin">kindle<button class="home-dot" id="clearEpaper" title="home" aria-label="clear screen and return home"></button></div>
+    <div class="retro-badge">
+      <span class="led"></span>power
+      <span class="model">model rlcd-88</span>
+      <button class="hw-clear-btn" id="clearRlcd" title="clear" aria-label="clear screen">clear</button>
+    </div>
+    <div class="notif-footer">
+      <span class="ticker-track">
+        <span class="ticker-content">
+          <span>♥ 1.2k</span> people liked your typing &nbsp;·&nbsp; <span>3 friends</span> are online now &nbsp;·&nbsp; don't miss out, keep scrolling &nbsp;·&nbsp; <span>sponsored</span>: upgrade your attention span &nbsp;·&nbsp;
+        </span>
+      </span>
+      <span class="engagement">engagement <span class="val" id="keysLogged">0</span></span>
+    </div>
+    <button class="upgrade-btn" id="clearSharp">upgrade to new device →</button>
+  </div>
+
+  <div class="bottom-controls" id="bottomControls">
+    <div class="controls-row" id="delayRow">
+      <label for="refreshDelay">refresh delay</label>
+      <input type="range" id="refreshDelayRange" min="5" max="2000" value="500">
+      <input type="number" id="refreshDelay" min="1" max="5000" value="500">
+      <span class="controls-note">ms per redraw</span>
+    </div>
+
+    <div class="controls-row" id="controlsRow">
+      <label for="fullRefreshAfter">full refresh after</label>
+      <input type="range" id="fullRefreshAfterRange" min="1" max="20" value="6">
+      <input type="number" id="fullRefreshAfter" min="1" max="50" value="6">
+      <span class="controls-note">partial refreshes (e-ink only)</span>
+    </div>
+
+    <div class="stats-row">
+      <span>last: <span class="stat-value" id="statType">—</span></span>
+      <span>duration: <span class="stat-value" id="statDuration">— ms</span></span>
+      <span id="statCounterWrap">until full refresh: <span class="stat-value stat-highlight" id="statCounter">0 / 6</span></span>
+    </div>
+  </div>
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  const PROFILES = {
+    epaper: {
+      label: "e-ink",
+      theme: "theme-epaper",
+      placeholder: "tap to begin reading",
+      idleMode: "screensaver",
+      hasFullRefresh: true,
+      fullDuration: 1400,
+      partialDuration: 500,
+      fullRefreshAfter: 6,
+      ghostTrailLength: 3,
+      ghostBaseOpacity: 0.28,
+      ghostDecay: 0.55,
+    },
+    rlcd: {
+      label: "RLCD",
+      theme: "theme-rlcd",
+      placeholder: "> READY.",
+      idleMode: "text",
+      hasFullRefresh: false,
+      fullDuration: 0,
+      partialDuration: 0,
+      fullRefreshAfter: null,
+      ghostTrailLength: 1,
+      ghostBaseOpacity: 0.12,
+      ghostDecay: 0.3,
+    },
+    sharp: {
+      label: "LCD",
+      theme: "theme-sharp",
+      placeholder: "3 apps are waiting for your attention",
+      idleMode: "text",
+      hasFullRefresh: false,
+      fullDuration: 0,
+      partialDuration: 0,
+      fullRefreshAfter: null,
+      ghostTrailLength: 0,
+      ghostBaseOpacity: 0,
+      ghostDecay: 0,
+    },
+  };
+
+  const state = {
+    activeProfile: "epaper",
+    buffer: { text: "", cursorPos: 0 },
+    displayed: { text: "", cursorPos: 0 },
+    ghostStack: [],
+    refreshBusy: false,
+    partialCount: 0,
+    lastDuration: 0,
+    lastType: "—",
+    pendingTimer: null,
+    keystrokes: 0,
+  };
+
+  // DOM refs
+  const screenEl = document.getElementById("screen");
+  const deviceFrame = document.getElementById("deviceFrame");
+  const ghost0El = document.getElementById("ghost0");
+  const ghost1El = document.getElementById("ghost1");
+  const currentEl = document.getElementById("current");
+  const placeholderEl = document.getElementById("placeholder");
+  const screensaverEl = document.getElementById("screensaver");
+  const flashOverlayEl = document.getElementById("flashOverlay");
+  const captureInput = document.getElementById("captureInput");
+  const profileSwitcher = document.getElementById("profileSwitcher");
+  const bottomControls = document.getElementById("bottomControls");
+  const fullRefreshAfterInput = document.getElementById("fullRefreshAfter");
+  const fullRefreshAfterRange = document.getElementById("fullRefreshAfterRange");
+  const refreshDelayInput = document.getElementById("refreshDelay");
+  const refreshDelayRange = document.getElementById("refreshDelayRange");
+  const surveilClock = document.getElementById("surveilClock");
+  const keysLoggedEl = document.getElementById("keysLogged");
+  const statType = document.getElementById("statType");
+  const statDuration = document.getElementById("statDuration");
+  const statCounter = document.getElementById("statCounter");
+  const statCounterWrap = document.getElementById("statCounterWrap");
+
+  const CURSOR_GLYPH = "█";
+
+  function withCursor(snapshot) {
+    const { text, cursorPos } = snapshot;
+    const pos = Math.max(0, Math.min(cursorPos, text.length));
+    return text.slice(0, pos) + CURSOR_GLYPH + text.slice(pos);
+  }
+
+  function renderLayers() {
+    const profile = PROFILES[state.activeProfile];
+    currentEl.textContent = withCursor(state.displayed);
+    const isIdle = state.displayed.text.length === 0 && state.buffer.text.length === 0;
+    if (profile.idleMode === "screensaver") {
+      screensaverEl.style.opacity = isIdle ? "1" : "0";
+      placeholderEl.style.opacity = "0";
+    } else {
+      placeholderEl.style.opacity = isIdle ? "1" : "0";
+      screensaverEl.style.opacity = "0";
+    }
+
+    const layers = [ghost0El, ghost1El];
+    layers.forEach((el, i) => {
+      const layer = state.ghostStack[i];
+      if (layer && profile.ghostTrailLength > i) {
+        el.textContent = layer.text;
+        el.style.opacity = String(profile.ghostBaseOpacity * Math.pow(profile.ghostDecay, i));
+      } else {
+        el.textContent = "";
+        el.style.opacity = "0";
+      }
+    });
+  }
+
+  function updateStatsUI() {
+    const profile = PROFILES[state.activeProfile];
+    statType.textContent = state.lastType;
+    statDuration.textContent = state.lastDuration ? Math.round(state.lastDuration) + " ms" : "— ms";
+    if (profile.hasFullRefresh) {
+      statCounterWrap.style.display = "";
+      statCounter.textContent = state.partialCount + " / " + profile.fullRefreshAfter;
+    } else {
+      statCounterWrap.style.display = "none";
+    }
+  }
+
+  function runRefreshVisual(kind, duration, onDone) {
+    if (kind === "full") {
+      flashOverlayEl.style.setProperty("--dur", duration + "ms");
+      flashOverlayEl.style.animationDuration = duration + "ms";
+      // restart animation
+      flashOverlayEl.classList.remove("is-flashing");
+      void flashOverlayEl.offsetWidth;
+      flashOverlayEl.classList.add("is-flashing");
+    }
+    state.pendingTimer = setTimeout(() => {
+      if (kind === "full") {
+        flashOverlayEl.classList.remove("is-flashing");
+        flashOverlayEl.style.opacity = "0";
+      }
+      onDone();
+    }, duration);
+  }
+
+  function commitDisplay(snapshot, kind) {
+    const profile = PROFILES[state.activeProfile];
+    if (kind === "full") {
+      state.ghostStack = [];
+    } else {
+      state.ghostStack.unshift(state.displayed);
+      state.ghostStack.length = Math.min(state.ghostStack.length, profile.ghostTrailLength);
+    }
+    state.displayed = snapshot;
+    renderLayers();
+  }
+
+  function startRefreshCycle() {
+    const profile = PROFILES[state.activeProfile];
+    const snapshot = { text: state.buffer.text, cursorPos: state.buffer.cursorPos };
+    state.refreshBusy = true;
+
+    let kind = "partial";
+    if (profile.hasFullRefresh) {
+      state.partialCount++;
+      if (state.partialCount >= profile.fullRefreshAfter) {
+        kind = "full";
+        state.partialCount = 0;
+      }
+    }
+    const duration = kind === "full" ? profile.fullDuration : profile.partialDuration;
+    const t0 = performance.now();
+
+    runRefreshVisual(kind, duration, () => {
+      commitDisplay(snapshot, kind);
+      state.lastDuration = performance.now() - t0;
+      state.lastType = kind;
+      state.refreshBusy = false;
+      updateStatsUI();
+
+      if (state.buffer.text !== state.displayed.text || state.buffer.cursorPos !== state.displayed.cursorPos) {
+        startRefreshCycle();
+      }
+    });
+  }
+
+  function onBufferChange() {
+    if (!state.refreshBusy) startRefreshCycle();
+  }
+
+  function syncBufferFromTextarea() {
+    const text = captureInput.value;
+    const pos = captureInput.selectionStart;
+    if (text !== state.buffer.text || pos !== state.buffer.cursorPos) {
+      state.buffer.text = text;
+      state.buffer.cursorPos = pos;
+      onBufferChange();
+    }
+  }
+
+  captureInput.addEventListener("input", syncBufferFromTextarea);
+  captureInput.addEventListener("keyup", syncBufferFromTextarea);
+  captureInput.addEventListener("click", syncBufferFromTextarea);
+  document.addEventListener("selectionchange", () => {
+    if (document.activeElement === captureInput) syncBufferFromTextarea();
+  });
+
+  screenEl.addEventListener("mousedown", () => {
+    captureInput.focus();
+  });
+
+  function clearDevice() {
+    if (state.pendingTimer) {
+      clearTimeout(state.pendingTimer);
+      state.pendingTimer = null;
+    }
+    const profile = PROFILES[state.activeProfile];
+    captureInput.value = "";
+    state.buffer = { text: "", cursorPos: 0 };
+    state.displayed = { text: "", cursorPos: 0 };
+    state.ghostStack = [];
+    state.partialCount = 0;
+    state.refreshBusy = false;
+    state.lastType = "—";
+    state.lastDuration = 0;
+
+    const finish = () => {
+      renderLayers();
+      updateStatsUI();
+      captureInput.focus();
+    };
+
+    if (profile.hasFullRefresh) {
+      runRefreshVisual("full", profile.fullDuration, finish);
+    } else {
+      finish();
+    }
+  }
+
+  document.getElementById("clearEpaper").addEventListener("click", (e) => {
+    e.stopPropagation();
+    clearDevice();
+  });
+  document.getElementById("clearRlcd").addEventListener("click", (e) => {
+    e.stopPropagation();
+    clearDevice();
+  });
+  document.getElementById("clearSharp").addEventListener("click", (e) => {
+    e.stopPropagation();
+    clearDevice();
+    setProfile("epaper");
+    captureInput.focus();
+  });
+
+  function setProfile(name) {
+    if (state.pendingTimer) {
+      clearTimeout(state.pendingTimer);
+      state.pendingTimer = null;
+    }
+    flashOverlayEl.classList.remove("is-flashing");
+    flashOverlayEl.style.opacity = "0";
+
+    state.activeProfile = name;
+    state.refreshBusy = false;
+    state.partialCount = 0;
+    state.ghostStack = [];
+
+    const profile = PROFILES[name];
+    screenEl.classList.remove("theme-epaper", "theme-rlcd", "theme-sharp");
+    screenEl.classList.add(profile.theme);
+    deviceFrame.dataset.profile = name;
+    placeholderEl.textContent = profile.placeholder;
+
+    Array.from(profileSwitcher.children).forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.profile === name);
+    });
+
+    bottomControls.style.display = profile.hasFullRefresh ? "flex" : "none";
+
+    refreshDelayInput.value = profile.partialDuration;
+    refreshDelayRange.value = Math.min(2000, profile.partialDuration);
+
+    if (profile.hasFullRefresh) {
+      fullRefreshAfterInput.value = profile.fullRefreshAfter;
+      fullRefreshAfterRange.value = profile.fullRefreshAfter;
+    }
+
+    renderLayers();
+    updateStatsUI();
+
+    if (state.buffer.text !== state.displayed.text || state.buffer.cursorPos !== state.displayed.cursorPos) {
+      onBufferChange();
+    }
+  }
+
+  profileSwitcher.addEventListener("click", (e) => {
+    const btn = e.target.closest(".profile-btn");
+    if (!btn) return;
+    setProfile(btn.dataset.profile);
+    captureInput.focus();
+  });
+
+  function applyFullRefreshAfter(value) {
+    const n = Math.max(1, Math.min(50, Math.round(Number(value)) || 1));
+    PROFILES.epaper.fullRefreshAfter = n;
+    fullRefreshAfterInput.value = n;
+    fullRefreshAfterRange.value = Math.min(20, n);
+    updateStatsUI();
+  }
+
+  fullRefreshAfterInput.addEventListener("input", (e) => applyFullRefreshAfter(e.target.value));
+  fullRefreshAfterRange.addEventListener("input", (e) => applyFullRefreshAfter(e.target.value));
+
+  function applyRefreshDelay(value) {
+    const n = Math.max(1, Math.min(5000, Math.round(Number(value)) || 1));
+    PROFILES[state.activeProfile].partialDuration = n;
+    refreshDelayInput.value = n;
+    refreshDelayRange.value = Math.min(2000, n);
+  }
+
+  refreshDelayInput.addEventListener("input", (e) => applyRefreshDelay(e.target.value));
+  refreshDelayRange.addEventListener("input", (e) => applyRefreshDelay(e.target.value));
+
+  // notification flourishes (LCD): engagement counter + live clock
+  captureInput.addEventListener("keydown", (e) => {
+    if (e.key === "Shift" || e.key === "Control" || e.key === "Alt" || e.key === "Meta") return;
+    state.keystrokes++;
+    keysLoggedEl.textContent = state.keystrokes;
+  });
+
+  function tickClock() {
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    surveilClock.textContent = pad(now.getHours()) + ":" + pad(now.getMinutes()) + ":" + pad(now.getSeconds());
+  }
+  tickClock();
+  setInterval(tickClock, 1000);
+
+  // init
+  setProfile("epaper");
+  renderLayers();
+  updateStatsUI();
+})();
+</script>
+</body>
+</html>
